@@ -8,8 +8,13 @@ services:
       - "7687:7687"
     environment:
       - NEO4J_AUTH=${NEO4J_USERNAME}/${NEO4J_PASSWORD}
-      - NEO4JLABS_PLUGINS='["apoc"]'
       - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+    # Volumnes to be used need to be customized accordingly, this is just for myself
+    volumes:
+      - ./data:/var/lib/neo4j/import/
+      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2a7a5a8a-3958-474c-817a-30392b43fdf7\data:/var/lib/neo4j/data
+      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2a7a5a8a-3958-474c-817a-30392b43fdf7\plugins:/var/lib/neo4j/plugins
+    # command: neo4j-admin database load --from=/var/lib/neo4j/import/ pdnet
 
   nestjs:
     build: 
@@ -21,7 +26,7 @@ services:
     depends_on:
       - neo4j
     env_file:
-      - .env
+      - backend/.env
 
   frontend:
     build:
@@ -29,4 +34,4 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "80:5000"
+      - "5000:80"

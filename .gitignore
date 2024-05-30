@@ -1,1 +1,5 @@
 .env
+*.dump
+
+.vscode
+.idea
