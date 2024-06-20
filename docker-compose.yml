@@ -12,9 +12,9 @@ services:
     # Volumnes to be used need to be customized accordingly, this is just for myself
     volumes:
       - ./data:/var/lib/neo4j/import/
-      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2a7a5a8a-3958-474c-817a-30392b43fdf7\data:/var/lib/neo4j/data
-      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2a7a5a8a-3958-474c-817a-30392b43fdf7\plugins:/var/lib/neo4j/plugins
-    # command: neo4j-admin database load --from=/var/lib/neo4j/import/ pdnet
+      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2c9bc5e7-bc36-47de-b509-ab97c052158a\data:/var/lib/neo4j/data
+      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2c9bc5e7-bc36-47de-b509-ab97c052158a\plugins:/var/lib/neo4j/plugins
+    # command: neo4j-admin database load --from-path=/var/lib/neo4j/import/ neo4j
 
   nestjs:
     build: 
