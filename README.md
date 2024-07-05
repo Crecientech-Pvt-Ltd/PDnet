@@ -20,7 +20,7 @@ and analysing the gene data. Backend contains the graph traversal algorithm and 
 git clone --recurse-submodules https://github.com/bhupesh98/PDnet.git
 ```
 
-2. Fill environment variables in `.env` & `backend/.env` using [`.env.example`](.env.example) [`backend/.env.example`](backend/.env.example) file.
+2. Fill environment variables in `.env` & `backend/.env` using [`.env.example`](.env.example) [`backend/.env.example`](https://github.com/bhupesh98/PDnet-backend/blob/main/.env.example) file.
 
 ```bash
 cp .env.example .env
