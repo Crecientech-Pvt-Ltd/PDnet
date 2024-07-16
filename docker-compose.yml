@@ -15,8 +15,6 @@ services:
       - ./data:/var/lib/neo4j/import/
       - D:\Playground\Neo4j\relate-data\dbmss\dbms-2c9bc5e7-bc36-47de-b509-ab97c052158a\data:/var/lib/neo4j/data
       - D:\Playground\Neo4j\relate-data\dbmss\dbms-2c9bc5e7-bc36-47de-b509-ab97c052158a\plugins:/var/lib/neo4j/plugins
-    # command: neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
-    # For seeding database
 
   nestjs:
     build: 

@@ -21,29 +21,38 @@ git clone --recurse-submodules https://github.com/bhupesh98/PDnet.git
 ```
 
 2. Fill environment variables in `.env` & `backend/.env` using [`.env.example`](.env.example) [`backend/.env.example`](https://github.com/bhupesh98/PDnet-backend/blob/main/.env.example) file.
+Also, change the backend API links in `fronted/index.html`, `frontend/PD_stringDB.html` & `frontend/PD_network.html` to the current machine IP address.
+
+3. Change only containerPath of volume to sym-link with current machine. Data for seed needs to be placed inside `data/` folder.
+
+```yml
+  services:
+    neo4j:
+      ...
+      volumes:
+        - hostPath:containerPath
+```
 
 ```bash
 cp .env.example .env
 cp backend/.env.example backend/.env
 ```
 
-3. Docker compose up the database and seed the data. Data for seed needs to be placed inside `data/` folder.
+4. Docker compose up the database and seed the data.
 
 ```bash
-docker-compose up -d --build neo4j
-docker exec -it neo4j sh
-neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
-cypher-shell -u $NEO4J_USERNAME -p $NEO4J_PASSWORD "CREATE DATABASE pdnet; START DATABASE pdnet;"
+docker-compose up -d --build
+docker exec -it neo4j neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
+docker exec -it neo4j cypher-shell -u $NEO4J_USERNAME -p $NEO4J_PASSWORD "CREATE DATABASE pdnet; START DATABASE pdnet;"
 ```
 
-4. Once, data is seeded successfully and database is online. Run the remaining services.
+5. Once, data is seeded successfully and database is online. Restart the neo4j service.
 
 ```bash
-docker-compose up -d --build frontend
-docker-compose up -d --build nestjs
+docker compose restart neo4j
 ```
 
-5. Open the browser and navigate to `http://localhost:5000/` to view the web interface.
+6. Open the browser and navigate to `http://localhost:5000/` to view the web interface.
 
 
 ## License
