@@ -6,10 +6,12 @@
     "gene-score-seed": "node gene-score-seed.cjs",
     "gene-universal-seed": "node gene-universal-seed.cjs",
     "protein-normalizer-txt2csv": "node protein-normalizer-txt2csv.cjs",
-    "universal-json2csv": "node universal-json2csv.cjs"
+    "universal-json2csv": "node universal-json2csv.cjs",
+    "csv2json": "node csv2json.cjs"
   },
   "dependencies": {
     "csv-parser": "^3.0.0",
+    "csvtojson": "^2.0.10",
     "json2csv": "^6.0.0-alpha.2",
     "neo4j-driver": "^5.22.0"
   }
