@@ -1,18 +1,22 @@
 {
-  "main": "protein2gene.cjs",
-  "type": "commonjs",
+  "name": "wrapper-cli-tool",
+  "type": "module",
+  "scripts Comments": "Custom scripts for specific tasks",
   "scripts": {
-    "protein2gene": "node --max-old-space-size=6144 protein2gene.cjs",
-    "gene-score-seed": "node gene-score-seed.cjs",
-    "gene-universal-seed": "node gene-universal-seed.cjs",
-    "protein-normalizer-txt2csv": "node protein-normalizer-txt2csv.cjs",
-    "universal-json2csv": "node universal-json2csv.cjs",
-    "csv2json": "node csv2json.cjs"
+    "protein-normalizer-txt2csv": "node protein-normalizer-txt2csv.js",
+    "protein2gene": "node --max-old-space-size=6144 protein2gene.js",
+    "gene-score-seed": "node gene-score-seed.js",
+    "gene-universal-seed": "node gene-universal-seed.js",
+    "universal-json2csv": "node universal-json2csv.js",
+    "csv2json": "node csv2json.js"
   },
   "dependencies": {
+    "chalk": "^5.3.0",
     "csv-parser": "^3.0.0",
     "csvtojson": "^2.0.10",
+    "inquirer": "^10.0.3",
     "json2csv": "^6.0.0-alpha.2",
-    "neo4j-driver": "^5.22.0"
+    "neo4j-driver": "^5.22.0",
+    "yargs": "^17.7.2"
   }
 }

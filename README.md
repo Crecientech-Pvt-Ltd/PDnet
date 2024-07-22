@@ -154,8 +154,17 @@ curl https://github.com/neo4j/apoc/releases/download/5.20.0/apoc-5.20.0-core.jar
 ```bash
 docker-compose up -d --build
 docker exec -it neo4j neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
+# Change the username and password
 docker exec -it neo4j cypher-shell -u $NEO4J_USERNAME -p $NEO4J_PASSWORD "CREATE DATABASE pdnet; START DATABASE pdnet;"
 ```
+
+> NOTE: To dump the database for data migration. Use this command:
+> ```bash
+> # Make sure to create a backup folder inside neo4j container
+> docker exec -it neo4j mkdir /var/lib/neo4j/import/backups
+> # Dump the database
+> docker exec -it neo4j neo4j-admin database dump pdnet --to-path=/var/lib/neo4j/import/backups
+> ```
 
 6. Once, data is seeded successfully and database is online. Restart the neo4j service.
 
