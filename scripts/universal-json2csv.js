@@ -3,6 +3,7 @@ import { Parser } from "json2csv";
 import inquirer from "inquirer";
 import yargs from "yargs";
 import chalk from "chalk";
+import { createRequire } from "module";
 
 // Default file names
 const defaultOutputFile = "universal.csv";
@@ -102,7 +103,7 @@ const transformData = (data) => {
     if (!outputFile.endsWith(".csv")) {
       outputFile += ".csv";
     }
-
+    const require = createRequire(import.meta.url);
     const jsonData = require(`./${inputFile}`);
     const transformedData = transformData(jsonData);
 

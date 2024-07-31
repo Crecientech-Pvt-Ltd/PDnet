@@ -19,9 +19,9 @@ const argv = yargs(process.argv.slice(2))
     description: 'Specify the output file name',
     type: 'string',
   })
-  .option('universalFile', {
-    alias: 'u',
-    description: 'Specify the universal file name',
+  .option('geneFile', {
+    alias: 'g',
+    description: 'Specify the reference genome file name',
     type: 'string',
   })
   .option('errorFile', {
@@ -33,8 +33,8 @@ const argv = yargs(process.argv.slice(2))
   .alias('help', 'h')
   .version('1.0.0')
   .alias('version', 'v')
-  .usage(chalk.green('Usage: $0 --inputFile [input.csv] --outputFile [output.csv] --universalFile [universal.csv] --errorFile [error.csv]'))
-  .example(chalk.blue('node $0 -i input.csv -o output.csv -u universal.csv -e error.csv'), chalk.cyan('Convert protein IDs to gene IDs using universal.csv'))
+  .usage(chalk.green('Usage: $0 [-i | --inputFile] <inputFile> [-o | --outputFile] <outputFile> [-g | --geneFile] <geneFile> [-e | --errorFile] <errorFile>'))
+  .example(chalk.blue('node $0 -i input.csv -o output.csv -g reference.csv -e error.csv'), chalk.cyan('Convert protein IDs to gene IDs using universal.csv'))
   .argv;
 
 async function promptForDetails(answer) {
@@ -60,10 +60,10 @@ async function promptForDetails(answer) {
       message: `Enter the output file name (default: ${defaultOutputFilename}):`,
       default: defaultOutputFilename,
     },
-    !answer.universalFile && {
+    !answer.geneFile && {
       type: 'input',
-      name: 'universalFile',
-      message: `Enter the universal file name:`,
+      name: 'geneFile',
+      message: `Enter the reference geneome file name:`,
       validate: (input) => {
         input = input?.trim();
         if (!existsSync(input)) {
@@ -89,19 +89,19 @@ async function promptForDetails(answer) {
 
 (async () => {
   try {
-    let { inputFile, outputFile, universalFile, errorFile } = argv;
+    let { inputFile, outputFile, geneFile, errorFile } = argv;
     
-    if (!inputFile || !outputFile || !universalFile || !errorFile) {
+    if (!inputFile || !outputFile || !geneFile || !errorFile) {
       try {
         const answers = await promptForDetails({
           inputFile,
           outputFile,
-          universalFile,
+          geneFile,
           errorFile,
         });
         inputFile = inputFile || answers.inputFile;
         outputFile = outputFile || answers.outputFile;
-        universalFile = universalFile || answers.universalFile;
+        geneFile = geneFile || answers.geneFile;
         errorFile = errorFile || answers.errorFile;
       } catch (error) {
         console.info(chalk.blue.bold("[INFO]"), chalk.cyan("Exiting..."));
@@ -124,15 +124,15 @@ async function promptForDetails(answer) {
     }
 
     // Check if universal file exists
-    if (!existsSync(universalFile)) {
+    if (!existsSync(geneFile)) {
       console.warn(
         chalk.bold("[WARN]"),
-        `Filename not found in directory: ${universalFile}. \nExiting...`
+        `Filename not found in directory: ${geneFile}. \nExiting...`
       );
       process.exit(1);
     }
   
-    if (!universalFile.endsWith(".csv")) {
+    if (!geneFile.endsWith(".csv")) {
       console.error(chalk.bold("[ERROR]"), "Please enter a CSV file. Exiting...");
       process.exit(1);
     }
@@ -147,7 +147,7 @@ async function promptForDetails(answer) {
 
     const proteinToGeneMap = new Map();
 
-    createReadStream(universalFile)
+    createReadStream(geneFile)
       .pipe(csv())
       .on("data", (data) => {
         proteinToGeneMap.set(data["Protein.stable.ID"], data["Gene.stable.ID"]);

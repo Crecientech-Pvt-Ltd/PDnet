@@ -1,9 +1,108 @@
 import neo4j from "neo4j-driver";
 import inquirer from "inquirer";
-import { existsSync, createReadStream } from "fs";
+import { existsSync, createReadStream, createWriteStream } from "fs";
 import { createInterface } from "readline";
 import yargs from "yargs";
 import chalk from "chalk";
+import { platform } from "os";
+import { execSync } from "child_process";
+
+const defaultUsername = "neo4j";
+const defaultDatabase = "pdnet";
+const defaultDbUrl = "bolt://localhost:7687";
+
+async function askQuestion(question) {
+  try {
+    return inquirer.prompt(question);
+  } catch (error) {
+    console.info(chalk.blue.bold("[INFO]"), chalk.cyan("Exiting..."));
+    process.exit(0);
+  }
+}
+
+async function transferFile(file, importDir) {
+  // Transfer file to Neo4j import directory
+  if (!importDir) {
+    if (platform() === "linux") {
+      importDir = "/var/lib/neo4j/import";
+      // ask confimation to use default import directory
+      const { useDefault } = await askQuestion({
+        type: "confirm",
+        name: "useDefault",
+        message: `Use default import directory: ${importDir}?`,
+        default: true,
+      });
+      if (!useDefault) {
+        importDir = (
+          await askQuestion({
+            type: "input",
+            name: "importDir",
+            message: `Enter the import directory path:`,
+            validate: (input) => {
+              input = input?.trim();
+              if (!existsSync(input)) {
+                return "Please enter a valid directory path";
+              }
+              return true;
+            },
+          })
+        ).importDir;
+      }
+    } else {
+      importDir = (
+        await askQuestion({
+          type: "input",
+          name: "importDir",
+          message: `Enter the import directory path:`,
+          validate: (input) => {
+            input = input?.trim();
+            if (!existsSync(input)) {
+              return "Please enter a valid directory path";
+            }
+            return true;
+          },
+        })
+      ).importDir;
+    }
+  }
+  if (platform() === "win32" && !importDir.endsWith("\\")) importDir += "\\";
+  else if (platform() === "linux" && !importDir.endsWith("/")) importDir += "/";
+
+  if (platform() === "win32") file = file.replace("/", "\\");
+  const fileDir = file
+    .split(`${platform() === "win32" ? "\\" : "/"}`)
+    .slice(0, -1)
+    .join(`${platform() === "win32" ? "\\" : "/"}`);
+
+  if (fileDir.length) {
+    try {
+      execSync(`mkdir ${importDir}${fileDir}`);
+      console.log(
+        chalk.green(
+          chalk.bold("[LOG]"),
+          `Created directory at Neo4j import directory`
+        )
+      );
+    } catch (error) {}
+  }
+
+  importDir += file;
+  try {
+    execSync(`${platform() === "win32" ? "copy" : "cp"} ${file} ${importDir}`);
+    console.log(
+      chalk.green(
+        chalk.bold("[LOG]"),
+        `Transferred file to Neo4j import directory`
+      )
+    );
+  } catch (error) {
+    console.error(
+      chalk.bold("[ERROR]"),
+      `Error transferring file to Neo4j import directory: ${error}`
+    );
+    process.exit(1);
+  }
+}
 
 // Command-line argument parsing with yargs
 const argv = yargs(process.argv.slice(2))
@@ -35,6 +134,11 @@ const argv = yargs(process.argv.slice(2))
   .option("disease", {
     alias: "D",
     description: "Specify the disease name",
+    type: "string",
+  })
+  .option("importDir", {
+    alias: "I",
+    description: "Specify the import directory",
     type: "string",
   })
   .help()
@@ -74,13 +178,13 @@ async function promptForDetails(answer) {
       type: "input",
       name: "dbUrl",
       message: `Enter the database URL:`,
-      required: true,
+      default: defaultDbUrl,
     },
     !answer.username && {
       type: "input",
       name: "username",
-      message: `Enter the username:`,
-      required: true,
+      message: `Enter the username: (default: neo4j)`,
+      default: defaultUsername,
     },
     !answer.password && {
       type: "password",
@@ -93,12 +197,13 @@ async function promptForDetails(answer) {
       type: "input",
       name: "database",
       message: `Enter the database name: (default: pdnet)`,
-      default: "pdnet",
+      default: defaultDatabase,
+      required: true,
     },
     !answer.disease && {
       type: "input",
       name: "disease",
-      message: `Enter the disease name:`,
+      message: `Enter the disease name: (Press Enter if disease independent data)`,
       required: true,
     },
   ].filter(Boolean);
@@ -107,7 +212,7 @@ async function promptForDetails(answer) {
 }
 
 async function seedData() {
-  let { file, dbUrl, username, password, database, disease } = argv;
+  let { file, dbUrl, username, password, database, disease, importDir } = argv;
 
   if (!file || !dbUrl || !username || !password || !database || !disease) {
     try {
@@ -131,6 +236,8 @@ async function seedData() {
     }
   }
 
+  if (platform() === "win32") file = file.replace("/", "\\");
+
   if (!existsSync(file)) {
     console.error(
       chalk.bold("[ERROR]"),
@@ -144,6 +251,20 @@ async function seedData() {
     process.exit(1);
   }
 
+  const { environment } = await askQuestion({
+    type: "list",
+    name: "environment",
+    message: "Select the environment",
+    choices: ["Remote", "Local"],
+  });
+
+  if (environment === "Local") await transferFile(file, importDir);
+  else {
+    console.info(
+      chalk.blue.bold("[INFO]"),
+      chalk.cyan("Make sure to transfer the file to Neo4j import directory")
+    );
+  }
   const readInterface = createInterface({
     input: createReadStream(file),
   });
@@ -158,46 +279,73 @@ async function seedData() {
       process.exit(1);
     }
     const ID = headers.shift();
-    headers = headers.map((header) => {
-      header = header.trim();
-      if (
-        header.startsWith("pathway_") ||
-        header.startsWith("Druggability_") ||
-        header.startsWith("TE_") ||
-        header.startsWith("GDA_") ||
-        header.startsWith("GWAS_") ||
-        header.startsWith("logFC_") ||
-        header.startsWith("database_")
-      ) {
-        return `${disease}_${header}`;
-      }
-    });
+    await (async () => {
+      headers = headers.map((header) => {
+        header = header.trim().replace(/"/g, "");
+        if (['hgnc_gene_id','hgnc_gene_symbol','Description','Gene name'].includes(header)) {
+          return header;
+        }
+        if (
+          header.startsWith("GDA_") ||
+          header.startsWith("GWAS_") ||
+          header.startsWith("Genetics_") ||
+          header.startsWith("logFC_")
+        ) {
+          if (header.startsWith("GWAS_")) header.replace("GWAS_", "Genetics_");
+          return disease ? `${disease}_${header}` : header;
+        } else if (
+          header.startsWith("pathway_") ||
+          header.startsWith("Druggability_") ||
+          header.startsWith("TE_") ||
+          header.startsWith("database_")
+        ) {
+          return header;
+        } else {
+          console.warn(chalk.bold("[WARN]"), `Header "${header}" Ignored`);
+        }
+      }).filter(Boolean);
+    })();
 
-    console.log(chalk.green(chalk.bold("[LOG]"), "Headers (filtered):", chalk.underline(headers)));
-    console.log(chalk.green(chalk.bold("[LOG]"), "Gene ID Header:", chalk.underline(ID)));
+    console.log(
+      chalk.green(
+        chalk.bold("[LOG]"),
+        "Headers (filtered):",
+        chalk.underline(headers)
+      )
+    );
+    console.log(
+      chalk.green(chalk.bold("[LOG]"), "Gene ID Header:", chalk.underline(ID))
+    );
 
     const driver = neo4j.driver(dbUrl, neo4j.auth.basic(username, password));
 
     const session = driver.session({
       database: database,
     });
+    if (platform() === "win32") file = file.replace(/\\/g, "/");
 
     const query = `
     LOAD CSV WITH HEADERS FROM 'file:///${file}' AS row
-    MERGE (g:Gene { ID: row.${ID} })
-    SET ${headers.map((header) => `g.${header} = row.${header}`).join(",\n")} ;
-  `;
+    MATCH (g:Gene { ID: row.\`${ID}\` })
+    SET ${headers
+      .map((header) => `g.\`${header === 'Gene name' ? 'Gene_name' : header}\` = row.\`${header.startsWith(`${disease}_`) ? header.slice(disease.length + 1) : header}\``)
+      .join(",\n")} ;
+    `.replace(/"/g, "");
+
+    const writeStream = createWriteStream("seed.cypher");
+    writeStream.write(query);
+    writeStream.end();
 
     try {
       console.log(
         chalk.green(chalk.bold("[LOG]"), "This will take a while...")
       );
       const result = await session.run(query);
+      console.log(chalk.green(chalk.bold("[LOG]"), "Data loaded"));
       console.log(
         chalk.green(
           chalk.bold("[LOG]"),
-          "Data loaded:",
-          result.summary.counters
+          `Properties updated: ${result.summary.updateStatistics.updates().propertiesSet}`
         )
       );
 
@@ -208,7 +356,8 @@ async function seedData() {
     } catch (error) {
       console.error(
         chalk.bold("[ERROR]"),
-        `Error connecting to database. \nMake sure database is active and database URL/credentials are valid`
+        `Error connecting to database. \nMake sure database is active and database URL/credentials are valid`,
+        error
       );
       process.exit(1);
     } finally {

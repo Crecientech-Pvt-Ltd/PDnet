@@ -151,11 +151,27 @@ curl https://github.com/neo4j/apoc/releases/download/5.20.0/apoc-5.20.0-core.jar
 
 5. Docker compose up the database and seed the data.
 
+> 💡 **NOTE**
+> In case, the server doesn't have the dump data. Transfer the files using the following command:
+> ```bash
+> # Transfer files to the server
+> scp -r <source-path> <username>@<server-ip>:<destination-path>
+> ```
+> > 💡 **NOTE**  
+> > Replace `<destination-path>` with the path specified in the [docker-compose.yml](../docker-compose.yml) file.
+> > ```yaml
+> > services:
+> >   neo4j:
+> >     ...
+> >     volumes:
+> >       - <destination-path>:/var/lib/neo4j/import
+> > ```
+
 ```bash
 docker-compose up -d --build
-docker exec -it neo4j neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
+  docker exec -it neo4j neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
 # Change the username and password
-docker exec -it neo4j cypher-shell -u $NEO4J_USERNAME -p $NEO4J_PASSWORD "CREATE DATABASE pdnet; START DATABASE pdnet;"
+docker exec -it neo4j cypher-shell -u neo4j -p crecientech2024 "CREATE DATABASE pdnet; START DATABASE pdnet;"
 ```
 
 > NOTE: To dump the database for data migration. Use this command:

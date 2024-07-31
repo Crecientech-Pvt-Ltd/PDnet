@@ -9,28 +9,57 @@
 
 ```bash
 npm run protein-normalizer-txt2csv
+# OR
+node protein-normalizer-txt2csv.js # with options
 ```
 
 2. Now, protein to gene mapping is required to upload the data to the database. Run the following script to map protein to gene & provide the required input in interactive mode.:
 
 ```bash
 npm run protein2gene
+# OR
+node --max-old-space-size=6144 protein2gene.js # with options
 ```
 
-## Seeding the Interaction database
+## Database Seeding
+
+### Seeding the Interaction database
+
+> 💡 **NOTE**  
+> Before running the following scripts, make sure you have transferred the seeding data to the server.
+> - To transfer files to the server, you can use the following command:
+> ```bash
+> # Transfer files to the server
+> scp -r <source-path> <username>@<server-ip>:<destination-path>
+> ```
+> > 💡 **NOTE**  
+> > Replace `<destination-path>` with the path specified in the [docker-compose.yml](../docker-compose.yml) file.
+> > ```yaml
+> > services:
+> >   neo4j:
+> >     ...
+> >     volumes:
+> >       - <destination-path>:/var/lib/neo4j/import
+> > ```
+>
+> - If running the scripts remotely, make sure to transfer the file to import directory of neo4j database.
 
 Now, you can upload the data to the database. Run the following script to upload the data to the database & provide the required input in interactive mode.:
 
 ```bash
-node run gene-score-seed
+npm run gene-score-seed
+# OR
+node gene-score-seed.js # with options
 ```
 
-## Seeding the Universal Data
+### Seeding the Universal Data
 
 Now, you can upload the universal data to the database. Run the following script to upload the data to the database & provide the required input in interactive mode.:
 
 ```bash
-node run gene-universal-seed
+npm run gene-universal-seed
+# OR
+node gene-universal-seed.js # with options
 ```
 
 
@@ -39,11 +68,33 @@ node run gene-universal-seed
 1. csv2json: Convert CSV file to JSON file.
 
 ```bash
-node csv2json
+npm run csv2json
+# OR
+node csv2json.js # with options
 ```
 
-2. Universal-json2csv: Convert JSON file to CSV file.
+2. Universal-json2csv: Convert Universal JSON file to CSV file.
 
 ```bash
-node universal-json2csv
+npm run universal-json2csv
+# OR
+node universal-json2csv.js # with options
 ```
+
+## FAQ
+
+1. Q: How to install node.js and npm in linux system?
+
+   A: Run the following commands to install node.js and npm in linux system:
+
+   ```bash
+   sudo apt update -y
+   sudo apt install nodejs -y
+   sudo apt install npm -y
+   ```
+
+2. Q: What is import directory of database?
+   
+   A: The import directory is the directory where the database looks for the files to import the data to the database.
+   - For linux system, the default import directory is `/var/lib/neo4j/import`.
+   - For windows system, the default import directory is `C:\Users\<username>\AppData\Neo4j\Relate\Data\dbmss\<dbms-id>\import`.

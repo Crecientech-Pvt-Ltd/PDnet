@@ -3,9 +3,100 @@ import inquirer from "inquirer";
 import { existsSync } from "fs";
 import chalk from "chalk";
 import yargs from "yargs";
+import { platform } from "os";
+import { execSync } from "child_process";
 
 const defaultUsername = "neo4j";
 const defaultDatabase = "pdnet";
+const defaultDbUrl = "bolt://localhost:7687";
+
+async function askQuestion(question) {
+  try {
+    return inquirer.prompt(question);
+  } catch (error) {
+    console.info(chalk.blue.bold("[INFO]"), chalk.cyan("Exiting..."));
+    process.exit(0);
+  }
+}
+
+async function transferFile(file, importDir) {
+  if (!importDir) {
+    if (platform() === "linux") {
+      importDir = "/var/lib/neo4j/import";
+      // ask confimation to use default import directory
+      const { useDefault } = await askQuestion({
+        type: "confirm",
+        name: "useDefault",
+        message: `Use default import directory: ${importDir}?`,
+        default: true,
+      });
+      if (!useDefault) {
+        importDir = (
+          await askQuestion({
+            type: "input",
+            name: "importDir",
+            message: `Enter the import directory path:`,
+            validate: (input) => {
+              input = input?.trim();
+              if (!existsSync(input)) {
+                return "Please enter a valid directory path";
+              }
+              return true;
+            },
+          })
+        ).importDir;
+      }
+    } else {
+      importDir = (
+        await askQuestion({
+          type: "input",
+          name: "importDir",
+          message: `Enter the import directory path:`,
+          validate: (input) => {
+            input = input?.trim();
+            if (!existsSync(input)) {
+              return "Please enter a valid directory path";
+            }
+            return true;
+          },
+        })
+      ).importDir;
+    }
+  }
+  if (platform() === "win32" && !importDir.endsWith("\\")) importDir += "\\";
+  else if (platform() === "linux" && !importDir.endsWith("/")) importDir += "/";
+
+  if (platform() === "win32") file = file.replace("/", "\\");
+  const fileDir = file.split(`${platform() === 'win32' ? '\\' : '/'}`).slice(0, -1).join(`${platform() === 'win32' ? '\\' : '/'}`);
+  if (fileDir.length) {
+    try {
+      execSync(`mkdir ${importDir}${fileDir}`);
+      console.log(
+        chalk.green(
+          chalk.bold("[LOG]"),
+          `Created directory at Neo4j import directory`
+        )
+      );
+    } catch (error) {}
+  }
+  
+  importDir += file;
+  try {
+    execSync(`${platform() === "win32" ? "copy" : "cp"} ${file} ${importDir}`);
+    console.log(
+      chalk.green(
+        chalk.bold("[LOG]"),
+        `Transferred file to Neo4j import directory`
+      )
+    );
+  } catch (error) {
+    console.error(
+      chalk.bold("[ERROR]"),
+      `Error transferring file to Neo4j import directory: ${error}`
+    );
+    process.exit(1);
+  }
+}
 
 const argv = yargs(process.argv.slice(2))
   .option("file", {
@@ -38,6 +129,11 @@ const argv = yargs(process.argv.slice(2))
     description: "Specify the interaction type",
     type: "string",
   })
+  .option("importDir", {
+    alias: "I",
+    description: "Specify the import directory",
+    type: "string",
+  })
   .help()
   .alias("help", "h")
   .version("1.0.0")
@@ -49,7 +145,7 @@ const argv = yargs(process.argv.slice(2))
   )
   .example(
     chalk.blue(
-      "node $0 -f data.csv -U bolt://localhost:7687 -u neo4j -p password -d pdnet -i PPI"
+      "node $0 -f data.csv -U bolt://localhost:7687 -u neo4j -p password -d pdnet -i PPI -U /var/lib/neo4j/import"
     )
   )
   .example(chalk.cyan("Load data in Neo4j")).argv;
@@ -75,7 +171,7 @@ async function promptForDetails(answer) {
       type: "input",
       name: "dbUrl",
       message: `Enter the database URL:`,
-      required: true,
+      default: defaultDbUrl,
     },
     !answer.username && {
       type: "input",
@@ -108,8 +204,16 @@ async function promptForDetails(answer) {
   return inquirer.prompt(questions);
 }
 
-async function main() {
-  let { file, dbUrl, username, password, database, interactionType } = argv;
+(async function main() {
+  let {
+    file,
+    dbUrl,
+    username,
+    password,
+    database,
+    interactionType,
+    importDir,
+  } = argv;
   console.info(
     chalk.blue.bold("[INFO]"),
     chalk.cyan("Make sure to not enter headers in CSV file")
@@ -149,7 +253,7 @@ async function main() {
     }
   }
 
-  interactionType = interactionType.toUpperCase();
+  if (platform() === "win32") file = file.replace("/", "\\");
 
   if (!existsSync(file)) {
     console.error(
@@ -164,12 +268,27 @@ async function main() {
     process.exit(1);
   }
 
+  const { environment } = await askQuestion({
+    type: "list",
+    name: "environment",
+    message: "Select the environment",
+    choices: ["Remote", "Local"],
+  });
+
+  if (environment === "Local") await transferFile(file, importDir);
+  else {
+    console.info(
+      chalk.blue.bold("[INFO]"),
+      chalk.cyan("Make sure to transfer the file to Neo4j import directory")
+    );
+  }
+  
   const driver = neo4j.driver(dbUrl, neo4j.auth.basic(username, password));
 
   const session = driver.session({
     database: database,
   });
-
+  if (platform() === 'win32') file = file.replace(/\\/g, "/");
   try {
     await session.run(`
       CREATE CONSTRAINT IF NOT EXISTS FOR (g:Gene)
@@ -209,11 +328,17 @@ async function main() {
 
   try {
     const result = await session.run(query);
+    console.log(chalk.green(chalk.bold("[LOG]"), "Data loaded using LOAD CSV"));
     console.log(
       chalk.green(
         chalk.bold("[LOG]"),
-        "Data loaded using LOAD CSV:",
-        result.summary.counters
+        `Nodes Created: ${result.summary.counters.updates().nodesCreated}`
+      )
+    );
+    console.log(
+      chalk.green(
+        chalk.bold("[LOG]"),
+        `Relationship Created: ${result.summary.counters.updates().relationshipsCreated}`
       )
     );
   } catch (error) {
@@ -223,6 +348,4 @@ async function main() {
     await session.close();
     await driver.close();
   }
-}
-
-main();
+})();

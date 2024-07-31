@@ -1,6 +1,6 @@
 [submodule "backend"]
 	path = backend
-	url = https://github.com/bhupesh98/PDnet-backend
+	url = https://github.com/Crecientech-Pvt-Ltd/PDnet-backend
 [submodule "frontend"]
 	path = frontend
-	url = https://github.com/bhupesh98/PDnet-frontend
+	url = https://github.com/Crecientech-Pvt-Ltd/PDnet-frontend
