@@ -122,7 +122,7 @@ sudo certbot --nginx -d pdnet-rnd-web.crecientech.com -d pdnet-rnd-apis.crecient
 1. Clone the repository
 
 ```bash
-git clone --recurse-submodules https://github.com/bhupesh98/PDnet.git
+git clone --recurse-submodules https://github.com/bhupesh98/PDnet.git && cd PDnet
 ```
 
 2. Fill environment variables in `.env` & `backend/.env` using [`.env.example`](.env.example) [`backend/.env.example`](https://github.com/bhupesh98/PDnet-backend/blob/main/.env.example) file.
@@ -146,6 +146,7 @@ cp backend/.env.example backend/.env
 4. Download (https://github.com/neo4j/apoc/releases/5.20.0)[apoc-5.20.0-core.jar] from here and move it to `plugins` folder.
 
 ```bash
+# Paste the command when you are outsie PDnet folder.
 curl https://github.com/neo4j/apoc/releases/download/5.20.0/apoc-5.20.0-core.jar -o plugins/apoc-5.20.0-core.jar
 ```
 
@@ -168,7 +169,7 @@ curl https://github.com/neo4j/apoc/releases/download/5.20.0/apoc-5.20.0-core.jar
 > > ```
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
   docker exec -it neo4j neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
 # Change the username and password
 docker exec -it neo4j cypher-shell -u neo4j -p crecientech2024 "CREATE DATABASE pdnet; START DATABASE pdnet;"
