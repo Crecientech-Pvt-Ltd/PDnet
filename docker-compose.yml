@@ -14,13 +14,15 @@ services:
     volumes:
       - ../data:/var/lib/neo4j/import/
       - ../neo4j/data:/var/lib/neo4j/data
-      - ../neo4j/plugins:/var/lib/neo4j/plugins
+      - ./plugins:/var/lib/neo4j/plugins
 
   nestjs:
     build: 
       context: backend
       dockerfile: Dockerfile
     container_name: nestjs
+    # Change this if running on local to avoid restarting on failure
+    restart: on-failure
     ports:
       - "3000:3000"
     depends_on:

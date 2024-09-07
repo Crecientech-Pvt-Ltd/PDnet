@@ -1,3 +1,9 @@
+<!--
+This is a markdown file used for documenting things. If you viewing this on a code editor please render this page before reading.
+If you are using VS Code, press Ctrl + Shift + V on windows. Cmd + Shift + V for Mac.
+For other IDEs, refer to their mannual for enabling markdown rendering feature.
+-->
+
 # PDnet Project
 
 ## Table of Contents
@@ -6,6 +12,7 @@
 - [Server Configuration](#server-configuration)
 - [Installation](#installation)
 - [License](#license)
+- [Troubleshooting & FAQs](#troubleshooting--faqs)
 
 ## Description
 
@@ -62,6 +69,7 @@ sudo vim /etc/nginx/conf.d/pdnet-rnd-web.conf
 ```bash
 server {
     listen 80;
+    # Can change the hosting link accordingly
     server_name pdnet-rnd-web.crecientech.com;
 
     location / {
@@ -77,13 +85,14 @@ server {
 ```
 
 ```bash
-# Backend configuration
+# Backend configuration (change filename as per your requirement)
 sudo vim /etc/nginx/conf.d/pdnet-rnd-apis.conf
 ```
 
 ```bash
 server {
     listen 80;
+    # Can change the hosting link accordingly
     server_name pdnet-rnd-apis.crecientech.com;
 
     location / {
@@ -106,14 +115,15 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-4. Now, follow the [Installation](#installation) steps to setup the project. After the process, configure SSL using certbot.
+4. Now, follow the [Installation](#installation) steps to setup the project. After the process, configure SSL encryption (for https) using certbot if required.
 
 ```bash
 # Install certbot
 sudo apt-get update
 sudo apt-get install certbot python3-certbot-nginx
 
-# Obtain SSL certificate
+# Obtain SSL certificate 
+# Make sure to change the domain name as per requirement
 sudo certbot --nginx -d pdnet-rnd-web.crecientech.com -d pdnet-rnd-apis.crecientech.com
 ```
 
@@ -142,13 +152,12 @@ cp backend/.env.example backend/.env
       volumes:
         - hostPath:containerPath
 ```
+4. <a id="video-upload"> </a> Download the video files from the following link and place them inside the `frontend/images/` folder. 
+**NOTE:** This is not the most conventional & intuative place to keep the videos, but this was hard-coded in the frontend code, so directed to keep the videos in this folder. This will soon be changed and once done will be updated in the manual. Also, this workflow will be gradually improved to avoid these steps, but currently the video size exceeds 100MB limit of commit size, so this is the workaround.
 
-4. Download (https://github.com/neo4j/apoc/releases/5.20.0)[apoc-5.20.0-core.jar] from here and move it to `plugins` folder.
+    > [Video Files](https://drive.google.com/drive/u/2/folders/1ZnQ7802kUhu9uGyD7rXONvULb4ELSv4l)
+    > Files to be downloaded are `Intro_of_tool.mp4` & `Network_analysis.mp4`.
 
-```bash
-# Paste the command when you are outsie PDnet folder.
-curl https://github.com/neo4j/apoc/releases/download/5.20.0/apoc-5.20.0-core.jar -o plugins/apoc-5.20.0-core.jar
-```
 
 5. Docker compose up the database and seed the data.
 
@@ -171,8 +180,8 @@ curl https://github.com/neo4j/apoc/releases/download/5.20.0/apoc-5.20.0-core.jar
 ```bash
 docker compose up -d --build
   docker exec -it neo4j neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
-# Change the username and password
-docker exec -it neo4j cypher-shell -u neo4j -p crecientech2024 "CREATE DATABASE pdnet; START DATABASE pdnet;"
+# Change the username (default username is neo4j) and password
+docker exec -it neo4j cypher-shell -u neo4j -p $NEO4J_PASSWORD "CREATE DATABASE pdnet; START DATABASE pdnet;"
 ```
 
 > NOTE: To dump the database for data migration. Use this command:
@@ -194,3 +203,29 @@ docker compose restart neo4j
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+## Troubleshooting & FAQs
+
+1. File permissions error in frontend container running leading to unable to view pages on website. This may occur when working on company servers.
+**Fix:**
+```bash
+docker exec -it frontend chmod -R 777 /usr/share/nginx/html
+```
+
+2. Latest changes missing in the frontend.
+**Fix:**
+Pull latest changes from phase2 or relevant branch.
+```bash
+git pull origin phase2
+# OR
+# git pull origin <branch-name>
+```
+
+3. If Video is not working, please Refer to [this point](#video-upload).
+
+4. If the backend is running, but application is not running, check the url of the backend in the frontend code in the following files:
+    - `frontend/index.html`
+    - `frontend/PD_stringDB.html`
+    - `frontend/PD_network.html`
+You can look for ajax requests in the code and change the url to the correct one.

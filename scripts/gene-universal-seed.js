@@ -204,7 +204,6 @@ async function promptForDetails(answer) {
       type: "input",
       name: "disease",
       message: `Enter the disease name: (Press Enter if disease independent data)`,
-      required: true,
     },
   ].filter(Boolean);
 
