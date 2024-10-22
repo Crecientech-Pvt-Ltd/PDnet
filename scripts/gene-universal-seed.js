@@ -1,11 +1,11 @@
 import neo4j from "neo4j-driver";
 import inquirer from "inquirer";
-import { existsSync, createReadStream, createWriteStream } from "fs";
-import { createInterface } from "readline";
+import { existsSync, createReadStream, createWriteStream } from "node:fs";
+import { createInterface } from "node:readline";
 import yargs from "yargs";
 import chalk from "chalk";
-import { platform } from "os";
-import { execSync } from "child_process";
+import { platform } from "node:os";
+import { execSync } from "node:child_process";
 
 const defaultUsername = "neo4j";
 const defaultDatabase = "pdnet";
@@ -37,7 +37,7 @@ async function transferFile(file, importDir) {
           await askQuestion({
             type: "input",
             name: "importDir",
-            message: `Enter the import directory path:`,
+            message: "Enter the import directory path:",
             validate: (input) => {
               input = input?.trim();
               if (!existsSync(input)) {
@@ -53,7 +53,7 @@ async function transferFile(file, importDir) {
         await askQuestion({
           type: "input",
           name: "importDir",
-          message: `Enter the import directory path:`,
+          message: "Enter the import directory path:",
           validate: (input) => {
             input = input?.trim();
             if (!existsSync(input)) {
@@ -80,10 +80,10 @@ async function transferFile(file, importDir) {
       console.log(
         chalk.green(
           chalk.bold("[LOG]"),
-          `Created directory at Neo4j import directory`
+          "Created directory at Neo4j import directory"
         )
       );
-    } catch (error) {}
+    } catch (error) { }
   }
 
   importDir += file;
@@ -92,7 +92,7 @@ async function transferFile(file, importDir) {
     console.log(
       chalk.green(
         chalk.bold("[LOG]"),
-        `Transferred file to Neo4j import directory`
+        "Transferred file to Neo4j import directory"
       )
     );
   } catch (error) {
@@ -162,7 +162,7 @@ async function promptForDetails(answer) {
     !answer.file && {
       type: "input",
       name: "file",
-      message: `Enter the file path:`,
+      message: "Enter the file path:",
       validate: (input) => {
         input = input?.trim();
         if (!existsSync(input)) {
@@ -177,33 +177,33 @@ async function promptForDetails(answer) {
     !answer.dbUrl && {
       type: "input",
       name: "dbUrl",
-      message: `Enter the database URL:`,
+      message: "Enter the database URL:",
       default: defaultDbUrl,
     },
     !answer.username && {
       type: "input",
       name: "username",
-      message: `Enter the username: (default: neo4j)`,
+      message: "Enter the username: (default: neo4j)",
       default: defaultUsername,
     },
     !answer.password && {
       type: "password",
       name: "password",
-      message: `Enter the password:`,
+      message: "Enter the password:",
       mask: "*",
       required: true,
     },
     !answer.database && {
       type: "input",
       name: "database",
-      message: `Enter the database name: (default: pdnet)`,
+      message: "Enter the database name: (default: pdnet)",
       default: defaultDatabase,
       required: true,
     },
     !answer.disease && {
       type: "input",
       name: "disease",
-      message: `Enter the disease name: (Press Enter if disease independent data)`,
+      message: "Enter the disease name: (Press Enter if disease independent data)",
     },
   ].filter(Boolean);
 
@@ -281,7 +281,7 @@ async function seedData() {
     await (async () => {
       headers = headers.map((header) => {
         header = header.trim().replace(/"/g, "");
-        if (['hgnc_gene_id','hgnc_gene_symbol','Description','Gene name'].includes(header)) {
+        if (['hgnc_gene_id', 'hgnc_gene_symbol', 'Description', 'Gene name'].includes(header)) {
           return header;
         }
         if (
@@ -292,16 +292,15 @@ async function seedData() {
         ) {
           if (header.startsWith("GWAS_")) header.replace("GWAS_", "Genetics_");
           return disease ? `${disease}_${header}` : header;
-        } else if (
+        } if (
           header.startsWith("pathway_") ||
           header.startsWith("Druggability_") ||
           header.startsWith("TE_") ||
           header.startsWith("database_")
         ) {
           return header;
-        } else {
-          console.warn(chalk.bold("[WARN]"), `Header "${header}" Ignored`);
         }
+        console.warn(chalk.bold("[WARN]"), `Header "${header}" Ignored`);
       }).filter(Boolean);
     })();
 
@@ -325,10 +324,13 @@ async function seedData() {
 
     const query = `
     LOAD CSV WITH HEADERS FROM 'file:///${file}' AS row
+    CALL {
+    WITH row 
     MATCH (g:Gene { ID: row.\`${ID}\` })
     SET ${headers
-      .map((header) => `g.\`${header === 'Gene name' ? 'Gene_name' : header}\` = row.\`${header.startsWith(`${disease}_`) ? header.slice(disease.length + 1) : header}\``)
-      .join(",\n")} ;
+        .map((header) => `g.\`${header === 'Gene name' ? 'Gene_name' : header}\` = row.\`${header.startsWith(`${disease}_`) ? header.slice(disease.length + 1) : header}\``)
+        .join(",\n")} 
+    } IN TRANSACTIONS OF 10000 ROWS;
     `.replace(/"/g, "");
 
     const writeStream = createWriteStream("seed.cypher");
@@ -348,14 +350,14 @@ async function seedData() {
         )
       );
 
-      const indexQuery = `CREATE INDEX Gene_name IF NOT EXISTS FOR (g:Gene) ON (g.Gene_name)`;
+      const indexQuery = "CREATE INDEX Gene_name IF NOT EXISTS FOR (g:Gene) ON (g.Gene_name)";
       await session.run(indexQuery);
       console.log(chalk.green(chalk.bold("[LOG]"), "Index created."));
       console.log(chalk.green(chalk.bold("[LOG]"), "Data seeding completed"));
     } catch (error) {
       console.error(
         chalk.bold("[ERROR]"),
-        `Error connecting to database. \nMake sure database is active and database URL/credentials are valid`,
+        "Error connecting to database. \nMake sure database is active and database URL/credentials are valid",
         error
       );
       process.exit(1);

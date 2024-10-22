@@ -13,8 +13,8 @@ services:
     # Volumnes to be used need to be customized accordingly, this is just for myself
     volumes:
       - ../data:/var/lib/neo4j/import/
-      - ../neo4j/data:/var/lib/neo4j/data
-      - ./plugins:/var/lib/neo4j/plugins
+      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2c9bc5e7-bc36-47de-b509-ab97c052158a\data:/var/lib/neo4j/data
+      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2c9bc5e7-bc36-47de-b509-ab97c052158a\plugins:/var/lib/neo4j/plugins
 
   nestjs:
     build: 
@@ -37,3 +37,11 @@ services:
     container_name: frontend
     ports:
       - "5000:80"
+
+  gsea:
+    build:
+      context: gsea
+      dockerfile: Dockerfile
+    container_name: gsea
+    ports:
+      - "8000:8000"
