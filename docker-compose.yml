@@ -10,14 +10,14 @@ services:
       - NEO4J_AUTH=${NEO4J_USERNAME}/${NEO4J_PASSWORD}
       - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
       # - NEO4J_dbms_memory_transaction_total_max=1024m
-    # Volumnes to be used need to be customized accordingly, this is just for myself
+      # Volumnes to be used need to be customized accordingly, this is just for myself
     volumes:
       - ../data:/var/lib/neo4j/import/
-      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2c9bc5e7-bc36-47de-b509-ab97c052158a\data:/var/lib/neo4j/data
-      - D:\Playground\Neo4j\relate-data\dbmss\dbms-2c9bc5e7-bc36-47de-b509-ab97c052158a\plugins:/var/lib/neo4j/plugins
+      - ../neo4j/data:/var/lib/neo4j/data
+      - ./plugins:/var/lib/neo4j/plugins
 
   nestjs:
-    build: 
+    build:
       context: backend
       dockerfile: Dockerfile
     container_name: nestjs
@@ -40,7 +40,7 @@ services:
 
   gsea:
     build:
-      context: gsea
+      context: backend/gsea
       dockerfile: Dockerfile
     container_name: gsea
     ports:
