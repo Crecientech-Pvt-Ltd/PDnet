@@ -3,6 +3,12 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import neo4j from "neo4j-driver";
 
+const defaultUsername = "neo4j";
+const defaultDatabase = "pdnet";
+const defaultDbUrl = "bolt://localhost:7687";
+const DISEASE_DEPENDENT_FIELDS = ['GDA', 'Genetics', 'LogFC'];
+const DISEASE_INDEPENDENT_FIELDS = ['Pathway', 'Druggability', 'TE', 'Database'];
+
 const args = yargs(process.argv.slice(2))
     .option("dbUrl", {
         alias: "U",
@@ -38,15 +44,19 @@ const args = yargs(process.argv.slice(2))
         description: "Specify the type of data to delete",
         type: "string",
     })
+    .option("header", {
+        alias: "H",
+        description: "Headers to explicitly delete",
+        type: "array",
+    })
     .help()
     .alias("help", "h")
     .version("1.0.0")
     .alias("version", "v")
-    .usage(
-        chalk.green(
-            "Usage: $0 [-f | --file] <filename> [-U | --dbUrl] <url> [-u | --username] <username> [-p | --password] <password> [-d | --database] <database> [-D | --disease] <disease>"
-        )
-    ).argv;
+    .usage(chalk.green("Usage: $0 [-f | --file] <filename> [-U | --dbUrl] <url> [-u | --username] <username> [-p | --password] <password> [-d | --database] <database> [-D | --disease] <disease> [-t | --type] <type> [-di | --diseaseIndependent]"))
+    .example(chalk.blue("node $0 -U bolt://localhost:7687 -u neo4j -p password -d tbep -t TE -di"))
+    .example(chalk.blue("node $0 -U bolt://localhost:7687 -u neo4j -p password -d tbep -D ALS -t GWAS"))
+    .example(chalk.cyan("Load data in Neo4j")).argv;
 
 async function promptForDetails(answer) {
     const questions = [
@@ -54,76 +64,47 @@ async function promptForDetails(answer) {
             type: "input",
             name: "dbUrl",
             message: `Enter the database URL:`,
-            default: "bolt://localhost:7687",
+            default: defaultDbUrl,
             required: true,
-            validate: (input) => {
-                input = input?.trim();
-                if (!input) {
-                    return "Please enter a valid database URL";
-                }
-                return true;
-            },
         },
         !answer.username && {
             type: "input",
             name: "username",
             message: `Enter the database username:`,
-            default: "neo4j",
+            default: defaultUsername,
             required: true,
-            validate: (input) => {
-                input = input?.trim();
-                if (!input) {
-                    return "Please enter a valid database username";
-                }
-                return true;
-            },
         },
         !answer.password && {
             type: "password",
             name: "password",
+            mask: "*",
             message: `Enter the database password:`,
             required: true,
-            validate: (input) => {
-                input = input?.trim();
-                if (!input) {
-                    return "Please enter a valid database password";
-                }
-                return true;
-            },
         },
         !answer.database && {
             type: "input",
             name: "database",
             message: `Enter the database name:`,
-            default: "pdnet",
+            default: defaultDatabase,
             required: true,
-            validate: (input) => {
-                input = input?.trim();
-                if (!input) {
-                    return "Please enter a valid database name";
-                }
-                return true;
-            },
         },
         !answer.disease && {
             type: "input",
             name: "disease",
             message: `Enter the disease name (Press Enter if disease independent):`,
         },
-        !answer.type && {
+        !answer.type && !answer.diseaseIndependent && {
             type: "list",
             name: "type",
             message: `Enter the type of data to delete:`,
-            choices: [
-                "TE",
-                "database",
-                "pathway",
-                "Druggability",
-                "GDA",
-                "Genetics",
-                "logFC",
-            ],
+            choices: DISEASE_DEPENDENT_FIELDS.concat(DISEASE_INDEPENDENT_FIELDS),
             required: true,
+        },
+        !answer.header && {
+            type: "input",
+            name: "header",
+            message: "Enter the headers to forcefully delete: (comma separated)",
+            filter: (input) => input.split(",").map((header) => header.trim()),
         },
     ];
 
@@ -134,58 +115,69 @@ async function promptForDetails(answer) {
     };
 }
 
-(async function deleteData() {
-    let { dbUrl, username, password, database, disease, diseaseIndependent, type } = args;
+(async () => {
+    let { dbUrl, username, password, database, disease, diseaseIndependent, type, header } = await args;
+	console.info(chalk.blue.bold("[INFO]"), chalk.cyan("GWAS -> Genetics"));
 
-    if (!dbUrl || !username || !password || !database || !disease || !diseaseIndependent || !type) {
-        let answers;
-        if (diseaseIndependent && !type) {
-            answers = await promptForDetails({ dbUrl, username, password, database, disease });
-        } else {
-            answers = await promptForDetails({ dbUrl, username, password, database, disease, type });
+    if (!dbUrl || !username || !password || !database || !disease || !diseaseIndependent || !type || !header) {
+        try {
+            const answers = await promptForDetails({ dbUrl, username, password, database, disease, type, header, diseaseIndependent });
+            dbUrl = answers.dbUrl;
+            username = answers.username;
+            password = answers.password;
+            database = answers.database;
+            disease = answers.disease.toUpperCase();
+            type = answers.type;
+            header = answers.header;
+        } catch (error) {
+            console.info(chalk.blue.bold("[INFO]"), chalk.cyan("Exiting..."));
+            process.exit(0);
         }
-        dbUrl = answers.dbUrl;
-        username = answers.username;
-        password = answers.password;
-        database = answers.database;
-        disease = answers.disease.toUpperCase();
-        type = answers.type;
     }
-    const diseaseIndependentData = [
-        "TE",
-        "database",
-        "pathway",
-        "Druggability"
-    ];
 
-    if (diseaseIndependentData.includes(type)) {
-        disease = "";
-    } else {
-        disease = disease.toUpperCase();
-    }
+    disease = DISEASE_INDEPENDENT_FIELDS.includes(type) ? undefined : disease.toUpperCase();
+
 
     const driver = neo4j.driver(dbUrl, neo4j.auth.basic(username, password));
     const session = driver.session({ database: database });
-    const column = `${disease}${disease === '' ? '' : '_'}${type}_`;
+    const column = `${disease ? `${disease}_` : ''}${type}_`;
     try {
         const query = `
-        CALL db.schema.nodeTypeProperties()
-        YIELD propertyName
-        WITH [k IN COLLECT(propertyName) WHERE k STARTS WITH '${column}'] AS keys
+        MATCH (s:Stats { version: 1 })
+        WITH [k IN s.${disease || 'common'} WHERE k STARTS WITH '${column}'] AS keys
         CALL apoc.periodic.iterate(
         'MATCH (g:Gene) RETURN g, $keys AS keys',
-        'CALL apoc.create.removeProperties(g,keys) YIELD node FINISH',
-        { batchSize:1000, parallel:true, params: { keys: keys } })
+        'CALL apoc.create.removeProperties(g,keys + $header) YIELD node FINISH',
+        { batchSize:1000, parallel:true, params: { keys: keys, header: $header } })
         YIELD committedOperations
         RETURN keys, committedOperations;
         `;
-        
-        const result = await session.run(query);
-        console.log(chalk.green(`Successfully deleted ${type} data for ${disease || "disease independent"} data`));
-        console.log(chalk.green(`Properties deleted: \n${result.records[0].get("keys").join("\n ")}`));
-        console.log(chalk.green(`Committed operations: ${result.records[0].get("committedOperations")}`));
-        
 
+        console.log(chalk.green(chalk.bold("[LOG]"), "This will take a while..."));
+        const start = new Date().getTime();
+        const result = await session.run(query, { header: header.filter(Boolean) });
+        const end = new Date().getTime();
+
+        console.log(chalk.green(chalk.bold("[LOG]"), `Successfully deleted ${type} data for ${disease || "disease independent"} data`));
+        console.log(chalk.green(chalk.bold("[LOG]"), `Properties deleted: \n${result.records[0].get("keys").join("\n ")}`));
+        console.log(chalk.green(chalk.bold("[LOG]"), `Committed operations: ${result.records[0].get("committedOperations")}`));
+        console.log(chalk.green(chalk.bold("[LOG]"), `Time taken: ${(end - start) / 1000} seconds`));
+
+        const deleteQuery = `
+        MATCH (s:Stats { version: 1 })
+        SET s.${disease || 'common'} = [k IN s.${disease || 'common'} WHERE NOT k STARTS WITH '${column}']
+        RETURN s.${disease || 'common'} AS keys;
+        `;
+        const keys = (await session.run(deleteQuery)).records[0].get("keys");
+        if (disease && !keys.some(key => key.startsWith(`${disease}_`))) {
+            const deleteDiseaseQuery = `
+            MATCH (s:Stats { version: 1 })
+            SET s.disease = [d IN s.disease WHERE d <> $disease]
+            REMOVE s.${disease};
+            `;
+            await session.run(deleteDiseaseQuery, { disease });
+        }
+        console.log(chalk.green(chalk.bold("[LOG]"), `Successfully updated stats for ${disease || "disease independent"} data`));
     } catch (error) {
         console.error(chalk.red(`Error deleting ${type} data`), error);
     } finally {

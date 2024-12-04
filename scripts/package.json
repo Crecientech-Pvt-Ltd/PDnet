@@ -14,7 +14,7 @@
     "chalk": "^5.3.0",
     "csv-parser": "^3.0.0",
     "csvtojson": "^2.0.10",
-    "inquirer": "^10.0.3",
+    "inquirer": "^12.1.0",
     "json2csv": "^6.0.0-alpha.2",
     "neo4j-driver": "^5.22.0",
     "yargs": "^17.7.2"

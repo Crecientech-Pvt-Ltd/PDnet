@@ -159,12 +159,13 @@ async function promptForDetails(answer) {
     console.error(chalk.bold("[ERROR]"), "Please enter a CSV file. Exiting...");
     process.exit(1);
   }
-
+  
+  const driver = neo4j.driver(dbUrl, neo4j.auth.basic(username, password));
+  const session = driver.session({
+    database: database,
+  });
+  
   try {
-    const driver = neo4j.driver(dbUrl, neo4j.auth.basic(username, password));
-    const session = driver.session({
-      database: database,
-    });
     await session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (g:Gene) REQUIRE g.ID IS UNIQUE");
 
     console.log(
@@ -191,7 +192,10 @@ async function promptForDetails(answer) {
     } IN TRANSACTIONS OF 10000 ROWS;
   `;
 
+    const start = new Date().getTime();
     const result = await session.run(query);
+    const end = new Date().getTime();
+
     console.log(chalk.green(chalk.bold("[LOG]"), "Data loaded using LOAD CSV"));
     console.log(
       chalk.green(
@@ -205,6 +209,7 @@ async function promptForDetails(answer) {
         `Relationship Created: ${result.summary.counters.updates().relationshipsCreated}`
       )
     );
+		console.log(chalk.green(chalk.bold("[LOG]"), `Time taken: ${(end - start) / 1000} seconds`));
   } catch (error) {
     console.error(
       chalk.bold("[ERROR]"),
