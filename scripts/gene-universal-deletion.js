@@ -39,7 +39,8 @@ const args = yargs(process.argv.slice(2))
         alias: "di",
         description: "Specify whether data is disease independent",
         type: "boolean",
-    }).option("type", {
+    })
+    .option("type", {
         alias: "t",
         description: "Specify the type of data to delete",
         type: "string",
@@ -49,13 +50,19 @@ const args = yargs(process.argv.slice(2))
         description: "Headers to explicitly delete",
         type: "array",
     })
+    .option("noHeader", {
+        alias: "nh",
+        description: "Disable headers",
+        type: "boolean",
+        default: false,
+    })
     .help()
     .alias("help", "h")
     .version("1.0.0")
     .alias("version", "v")
-    .usage(chalk.green("Usage: $0 [-f | --file] <filename> [-U | --dbUrl] <url> [-u | --username] <username> [-p | --password] <password> [-d | --database] <database> [-D | --disease] <disease> [-t | --type] <type> [-di | --diseaseIndependent]"))
-    .example(chalk.blue("node $0 -U bolt://localhost:7687 -u neo4j -p password -d tbep -t TE -di"))
-    .example(chalk.blue("node $0 -U bolt://localhost:7687 -u neo4j -p password -d tbep -D ALS -t GWAS"))
+    .usage(chalk.green("Usage: $0 [-U | --dbUrl] <url> [-u | --username] <username> [-p | --password] <password> [-d | --database] <database> [-D | --disease] <disease> [-t | --type] <type> [-di | --diseaseIndependent]"))
+    .example(chalk.blue("node $0 -U bolt://localhost:7687 -u neo4j -p password -d pdnet -t TE --di --nh"))
+    .example(chalk.blue("node $0 -U bolt://localhost:7687 -u neo4j -p password -d pdnet -D ALS -t GWAS -H p-value,OR"))
     .example(chalk.cyan("Load data in Neo4j")).argv;
 
 async function promptForDetails(answer) {
@@ -106,13 +113,9 @@ async function promptForDetails(answer) {
             message: "Enter the headers to forcefully delete: (comma separated)",
             filter: (input) => input.split(",").map((header) => header.trim()),
         },
-    ];
+    ].filter(Boolean);
 
-    const answers = await inquirer.prompt(questions.filter(Boolean));
-    return {
-        ...answer,
-        ...answers,
-    };
+    return inquirer.prompt(questions);
 }
 
 (async () => {
@@ -122,13 +125,13 @@ async function promptForDetails(answer) {
     if (!dbUrl || !username || !password || !database || !disease || !diseaseIndependent || !type || !header) {
         try {
             const answers = await promptForDetails({ dbUrl, username, password, database, disease, type, header, diseaseIndependent });
-            dbUrl = answers.dbUrl;
-            username = answers.username;
-            password = answers.password;
-            database = answers.database;
-            disease = answers.disease.toUpperCase();
-            type = answers.type;
-            header = answers.header;
+            dbUrl ||= answers.dbUrl;
+            username ||= answers.username;
+            password ||= answers.password;
+            database ||= answers.database;
+            disease ||= answers.disease?.toUpperCase();
+            type ||= answers.type;
+            header ||= answers.header || [];
         } catch (error) {
             console.info(chalk.blue.bold("[INFO]"), chalk.cyan("Exiting..."));
             process.exit(0);

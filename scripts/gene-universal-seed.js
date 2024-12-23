@@ -1,21 +1,22 @@
 import neo4j from "neo4j-driver";
 import inquirer from "inquirer";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { createInterface } from "node:readline";
 import yargs from "yargs";
 import chalk from "chalk";
-import { platform } from "node:os";
+import Path from "node:path";
 
 const defaultUsername = "neo4j";
 const defaultDatabase = "pdnet";
 const defaultDbUrl = "bolt://localhost:7687";
-const GENERAL_SYMBOLS = ["hgnc_gene_id", "hgnc_gene_symbol", "Description", "Gene_name", "Gene name"];
+const GENERAL_SYMBOLS = ["hgnc_gene_id", "Description", "Gene_name", "Gene name"];
 const DISEASE_DEPENDENT_FIELDS = ['GWAS', 'GDA', 'LogFC', 'Genetics'];
 const DISEASE_INDEPENDENT_FIELDS = ['Pathway', 'Druggability', 'TE', 'Database'];
 const RENAMED_FIELDS = {
   "GWAS": "Genetics",
   "Gene name": "Gene_name",
 };
+const DISEASE_MAP = ["ALS", "PSP", "FTD", "OI"];
 
 // Command-line argument parsing with yargs
 const argv = yargs(process.argv.slice(2))
@@ -49,12 +50,18 @@ const argv = yargs(process.argv.slice(2))
     description: "Specify the disease name",
     type: "string",
   })
+  .option("diseaseIndependent", {
+    alias: "di",
+    description: "Specify whether data is disease independent",
+    type: "boolean",
+  })
   .option("header", {
     alias: "H",
     description: "Headers to forcefully include",
     type: "array",
   })
-  .option("no-header", {
+  .option("noHeader", {
+    alias: "nh",
     description: "Disable headers",
     type: "boolean",
     default: false,
@@ -63,30 +70,23 @@ const argv = yargs(process.argv.slice(2))
   .alias("help", "h")
   .version("1.0.0")
   .alias("version", "v")
-  .usage(
-    chalk.green(
-      "Usage: $0 [-f | --file] <filename> [-U | --dbUrl] <url> [-u | --username] <username> [-p | --password] <password> [-d | --database] <database> [-D | --disease] <disease> [-H | --header] <headers>"
-    )
-  )
-  .example(
-    chalk.blue(
-      "node $0 -f universal.csv -U bolt://localhost:7687 -u neo4j -p password -d pdnet -D ALS --no-header"
-    ),
-    chalk.cyan("Load data in Neo4j")
-  ).argv;
+  .usage(chalk.green("Usage: $0 [-f | --file] <filename> [-U | --dbUrl] <url> [-u | --username] <username> [-p | --password] <password> [-d | --database] <database> [-D | --disease] <disease> [-H | --header] <headers> [-di | --diseaseIndependent]"))
+  .example(chalk.blue("node $0 -f universal.csv -U bolt://localhost:7687 -u neo4j -p password -d pdnet -D ALS --nh"))
+  .example(chalk.blue("node $0 -f universal.csv -U bolt://localhost:7687 -u neo4j -p password -d pdnet --di --nh"))
+  .example(chalk.cyan("Load data in Neo4j"))
+  .argv;
 
 async function promptForDetails(answer) {
   const questions = [
     !answer.file && {
       type: "input",
       name: "file",
-      message: `Enter the file path:`,
+      message: "Enter the file path:",
       validate: (input) => {
         input = input?.trim();
-        if (!input.endsWith(".csv")) {
+        if (Path.extname(input) !== ".csv") {
           return "Please enter a CSV file";
         }
-        // Check if the file exists
         if (!existsSync(input)) {
           return "File does not exist in this directory. Please enter a valid file path";
         }
@@ -96,33 +96,33 @@ async function promptForDetails(answer) {
     !answer.dbUrl && {
       type: "input",
       name: "dbUrl",
-      message: `Enter the database URL:`,
+      message: "Enter the database URL:",
       default: defaultDbUrl,
     },
     !answer.username && {
       type: "input",
       name: "username",
-      message: `Enter the username: (default: neo4j)`,
+      message: "Enter the username: (default: neo4j)",
       default: defaultUsername,
     },
     !answer.password && {
       type: "password",
       name: "password",
-      message: `Enter the password:`,
+      message: "Enter the password:",
       mask: "*",
       required: true,
     },
     !answer.database && {
       type: "input",
       name: "database",
-      message: `Enter the database name: (default: pdnet)`,
+      message: "Enter the database name: (default: pdnet)",
       default: defaultDatabase,
       required: true,
     },
-    !answer.disease && {
+    !answer.disease && !answer.diseaseIndependent && {
       type: "input",
       name: "disease",
-      message: `Enter the disease name: (Press Enter if disease independent data)`,
+      message: "Enter the disease name: (Press Enter if disease independent data)",
     },
     !answer.header && {
       type: "input",
@@ -136,8 +136,11 @@ async function promptForDetails(answer) {
 }
 
 (async () => {
-  let { file, dbUrl, username, password, database, disease, header, "no-header": noHeader } = await argv;
-
+  let { file, dbUrl, username, password, database, disease, header, noHeader, diseaseIndependent } = await argv;
+  disease = DISEASE_MAP.find((d) => file.includes(d));
+  if (disease) {
+    console.info(chalk.blue.bold("[INFO]"), chalk.cyan(`Detected disease: ${disease}`));
+  }
   if (!file || !dbUrl || !username || !password || !database || !disease || !header) {
     try {
       const answers = await promptForDetails({
@@ -147,24 +150,24 @@ async function promptForDetails(answer) {
         password,
         database,
         disease,
+        diseaseIndependent,
         ...(noHeader && { header: [] }),
       });
-      file = file || answers.file;
-      dbUrl = dbUrl || answers.dbUrl;
-      username = username || answers.username;
-      password = password || answers.password;
-      database = database || answers.database;
-      disease = (disease || answers.disease).toUpperCase();
-      header = answers.header;
+      file ||= answers.file;
+      dbUrl ||= answers.dbUrl;
+      username ||= answers.username;
+      password ||= answers.password;
+      database ||= answers.database;
+      disease ||= answers.disease?.toUpperCase();
+      header ||= answers.header || [];
+
     } catch (error) {
       console.info(chalk.blue.bold("[INFO]"), chalk.cyan("Exiting..."));
       process.exit(0);
     }
   }
-
-  if (platform() === "win32") file = file.replace("/", "\\");
-  if (!file.endsWith(".csv")) {
-    console.error(chalk.bold("[ERROR]"), "Please enter a CSV file. Exiting...");
+  if (Path.extname(file) !== ".csv") {
+    console.error(chalk.bold("[ERROR]"), "File should be a CSV file. Exiting...");
     process.exit(1);
   }
   if (!existsSync(file)) {
@@ -174,115 +177,101 @@ async function promptForDetails(answer) {
 
   GENERAL_SYMBOLS.push(...header);
   const finalToInitialHeaders = {};
-
   const readInterface = createInterface({
     input: createReadStream(file),
   });
   readInterface.once("line", async (line) => {
     readInterface.close();
-    let headers = line.split(",");
-    if (headers.length < 2) {
-      console.error(
-        chalk.bold("[ERROR]"),
-        "CSV file must have at least two columns"
-      );
+    const initialHeaders = line.split(",");
+    if (initialHeaders.length < 2) {
+      console.error(chalk.bold("[ERROR]"),"CSV file must have at least two columns");
       process.exit(1);
     }
-    const ID = headers.shift();
-    await (async () => {
-      headers = headers = headers
-        .map((header) => {
-          header = header.trim().replace(/"/g, "");
+    const ID = initialHeaders.shift();
+    const headers = initialHeaders
+      .map((header) => {
+        header = header.trim().replace(/^['\s"]*|['\s"]*$/g, "");
+        if (/target_prioritization_score.csv$/.test(file)) {
+          const res = `OT_Prioritization_${header}`;
+          finalToInitialHeaders[res] = header;
+          return res;
+        }
 
-          for (const field of GENERAL_SYMBOLS) {
-            if (new RegExp(`^${field}$`, "i").test(header)) {
-              const res = RENAMED_FIELDS[field] ?? field;
+        for (const field of GENERAL_SYMBOLS) {
+          if (new RegExp(`^${field}$`, "i").test(header)) {
+            const res = RENAMED_FIELDS[field] ?? field;
+            finalToInitialHeaders[res] = header;
+            return res;
+          }
+        }
+
+        // Conditions for modifying the header based on prefixes (ignoring case)
+        if (disease) {
+          const drHeader = header.replace(new RegExp(`^${disease}_`, "i"), "");
+          for (const field of DISEASE_DEPENDENT_FIELDS) {
+            if (new RegExp(`^${field}_`, "i").test(drHeader)) {
+              const res = `${disease}_${RENAMED_FIELDS[field] ?? field}_${drHeader.slice(field.length + 1)}`;
               finalToInitialHeaders[res] = header;
               return res;
             }
           }
-
-          // Conditions for modifying the header based on prefixes (ignoring case)
-          if (disease) {
-            const drHeader = header.replace(new RegExp(`^${disease}_`, "i"), "");
-            for (const field of DISEASE_DEPENDENT_FIELDS) {
-              if (new RegExp(`^${field}_`, "i").test(drHeader)) {
-                const res = `${disease}_${RENAMED_FIELDS[field] ?? field}_${drHeader.slice(field.length + 1)}`;
-                finalToInitialHeaders[res] = header;
-                return res;
-              }
-            }
+        }
+        for (const field of DISEASE_INDEPENDENT_FIELDS) {
+          if (new RegExp(`^${field}_`, "i").test(header)) {
+            const res = `${RENAMED_FIELDS[field] ?? field}_${header.slice(field.length + 1)}`;
+            finalToInitialHeaders[res] = header;
+            return res;
           }
-          for (const field of DISEASE_INDEPENDENT_FIELDS) {
-            if (new RegExp(`^${field}_`, "i").test(header)) {
-              const res = `${RENAMED_FIELDS[field] ?? field}_${header.slice(field.length + 1)}`;
-              finalToInitialHeaders[res] = header;
-              return res;
-            }
-          }
-          // Warn that the header is ignored if it doesn't meet the above criteria
-          console.warn(chalk.bold("[WARN]"), `Header "${header}" Ignored`);
-        })
-        .filter(Boolean); // Filters out undefined or null values (i.e., ignored headers)
-    })();
-
-    console.log(
-      chalk.green(
-        chalk.bold("[LOG]"),
-        "Headers (filtered):",
-        chalk.underline(headers)
-      )
-    );
-    console.log(
-      chalk.green(chalk.bold("[LOG]"), "Gene ID Header:", chalk.underline(ID))
-    );
+        }
+        // Warn that the header is ignored if it doesn't meet the above criteria
+        console.warn(chalk.bold("[WARN]"), `Header "${header}" Ignored`);
+      })
+      .filter(Boolean); // Filters out undefined or null values (i.e., ignored headers)
+      
+    if (headers.length === 0) {
+      console.error(chalk.bold("[ERROR]"), "No headers to seed. Exiting...");
+      process.exit(1);
+    }
+    console.log(chalk.green(chalk.bold("[LOG]"),"Headers (filtered):",chalk.underline(headers)));
+    console.log(chalk.green(chalk.bold("[LOG]"), "Gene ID Header:", chalk.underline(ID)));
+    
+    file = file.split("scripts").at(-1).replace(/^[\\/]/, "").replace(/\\/g, "/");
 
     const driver = neo4j.driver(dbUrl, neo4j.auth.basic(username, password));
-
     const session = driver.session({
       database: database,
     });
-
     const query = `
-    LOAD CSV WITH HEADERS FROM 'file:///${file}' AS row
+    LOAD CSV WITH HEADERS FROM '${/^https?:\/\//.test(file) ? file : `file:///${file.replace(/^\.[\\/]+/, "")}`}' AS row
     CALL {
       WITH row
       MATCH (g:Gene { ID: row.\`${ID}\` })
-      SET ${headers.map((header) => `g.\`${header}\` = row.\`${finalToInitialHeaders[header]}\``).join(",\n")}
-      } IN 24 CONCURRENT TRANSACTIONS OF 1000 ROWS;
+      SET ${headers.map((header) => `g.\`${header}\` = row.\`${finalToInitialHeaders[header]}\``).join(",\n")}   
+    } IN 24 CONCURRENT TRANSACTIONS;
     `.replace(/"/g, "");
-
-    const writeStream = createWriteStream(`${file}-seed.cypher`);
-    writeStream.write(query);
-    writeStream.end();
+    
+    if (!existsSync("cypher/")) mkdirSync("cypher/");
+    writeFileSync(`cypher/${Path.parse(file).name}-seed.cypher`, query);
 
     try {
-      console.log(
-        chalk.green(chalk.bold("[LOG]"), "This will take a while...")
-      );
+      console.log(chalk.green(chalk.bold("[LOG]"), "This will take a while..."));
       const start = new Date().getTime();
       const result = await session.run(query);
       const end = new Date().getTime();
 
-      console.log(
-        chalk.green(
-          chalk.bold("[LOG]"),
-          `Properties updated: ${result.summary.updateStatistics.updates().propertiesSet}`
-        )
-      );
+      console.log(chalk.green(chalk.bold("[LOG]"), `Properties updated: ${result.summary.updateStatistics.updates().propertiesSet}`));
       console.log(chalk.green(chalk.bold("[LOG]"), `Time taken: ${(end - start) / 1000} seconds`));
-
-      const indexQuery = "CREATE INDEX Gene_name IF NOT EXISTS FOR (g:Gene) ON (g.Gene_name)";
+      const indexQuery = "CREATE INDEX Gene_name_Gene IF NOT EXISTS FOR (g:Gene) ON (g.Gene_name)";
       await session.run(indexQuery);
 
       const diseaseAndHeadersUpdateQuery = `
       MERGE (s:Stats { version: 1 }) SET ${disease ? 's.disease = CASE WHEN NOT $disease IN COALESCE(s.disease,[]) THEN COALESCE(s.disease,[]) + $disease ELSE s.disease END,' : ''}
       s.common = apoc.coll.toSet(COALESCE(s.common, []) + ${disease ? '[h IN $headers WHERE NOT h STARTS WITH $disease + "_" ]' : '$headers'})
       ${disease ? `, s.${disease} = apoc.coll.toSet(COALESCE(s.${disease}, []) + [h IN $headers WHERE h STARTS WITH $disease + "_" ])` : ''};`;
-
+      
       await session.run(diseaseAndHeadersUpdateQuery, { ...(disease && { disease }), headers });
-
       console.log(chalk.green(chalk.bold("[LOG]"), "Added Disease, Headers to Stats (If not already present)"));
+
       console.log(chalk.green(chalk.bold("[LOG]"), "Data seeding completed"));
     } catch (error) {
       console.error(chalk.bold("[ERROR]"), error);

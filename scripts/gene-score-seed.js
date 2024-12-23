@@ -3,6 +3,7 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import yargs from "yargs";
 import { platform } from "node:os";
+import Path from "node:path";
 
 const defaultUsername = "neo4j";
 const defaultDatabase = "pdnet";
@@ -61,13 +62,13 @@ async function promptForDetails(answer) {
       type: "input",
       name: "file",
       message: "Enter the file path:",
-      validate: (input) => {
-        input = input?.trim();
-        if (!input.endsWith(".csv")) {
-          return "Please enter a CSV file";
-        }
-        return true;
-      },
+			validate: (input) => {
+				input = input?.trim();
+				if (Path.extname(input) !== ".csv") {
+					return "Please enter a CSV file";
+				}
+				return true;
+			},
     },
     !answer.dbUrl && {
       type: "input",
@@ -142,23 +143,22 @@ async function promptForDetails(answer) {
         database,
         interactionType,
       });
-      file = file || answers.file;
-      dbUrl = dbUrl || answers.dbUrl;
-      username = username || answers.username;
-      password = password || answers.password;
-      database = database || answers.database;
-      interactionType = interactionType || answers.interactionType;
+      file ||= answers.file;
+      dbUrl ||= answers.dbUrl;
+      username ||= answers.username;
+      password ||= answers.password;
+      database ||= answers.database;
+      interactionType ||= answers.interactionType;
     } catch (error) {
       console.info(chalk.blue.bold("[INFO]"), chalk.cyan("Exiting..."));
       process.exit(0);
     }
   }
 
-  if (platform() === "win32") file = file.replace("/", "\\");
-  if (!file.endsWith(".csv")) {
-    console.error(chalk.bold("[ERROR]"), "Please enter a CSV file. Exiting...");
-    process.exit(1);
-  }
+  if (Path.extname(file) !== ".csv") {
+		console.error(chalk.bold("[ERROR]"), "Please enter a CSV file. Exiting...");
+		process.exit(1);
+	}
   
   const driver = neo4j.driver(dbUrl, neo4j.auth.basic(username, password));
   const session = driver.session({
@@ -189,7 +189,7 @@ async function promptForDetails(answer) {
       MERGE (g2:Gene {ID: line[1]})
       MERGE (g1)-[r:${interactionType}]->(g2)
       ON CREATE SET r.score = toFloat(line[2])
-    } IN TRANSACTIONS OF 10000 ROWS;
+    } IN TRANSACTIONS;
   `;
 
     const start = new Date().getTime();
