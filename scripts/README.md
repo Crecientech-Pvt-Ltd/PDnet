@@ -46,7 +46,6 @@
 > >       - <destination-path>:/var/lib/neo4j/import
 > > ```
 >
-> - If running the scripts remotely, make sure to transfer the file to import directory of neo4j database.
 
 Now, you can upload the data to the database. Run the following script to upload the data to the database & provide the required input in interactive mode.:
 
@@ -62,7 +61,6 @@ Now, you can upload the universal data to the database. Run the following script
 
 > 💡 **NOTE**
 > Before running the following scripts, make sure you have transferred the seeding data to the server. And csv data needs to be in the same folder as the script.
-> You can choose whether to upload data in local environment or remote environment which starts or skips file transfering process respectively.
 
 ```bash
 npm run gene-universal-seed
