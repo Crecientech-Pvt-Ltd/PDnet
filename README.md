@@ -11,6 +11,7 @@ For other IDEs, refer to their mannual for enabling markdown rendering feature.
 - [Description](#description)
 - [Server Configuration](#server-configuration)
 - [Installation](#installation)
+- [Importing/Exporting Data](#importingexporting-data)
 - [License](#license)
 - [Troubleshooting & FAQs](#troubleshooting--faqs)
 
@@ -152,6 +153,8 @@ cp backend/.env.example backend/.env
       volumes:
         - hostPath:containerPath
 ```
+
+<div id="video-upload"></div>
 4. Download the video files from the following link and place them inside the `frontend/images/` folder. 
 **NOTE:** This is not the most conventional & intuative place to keep the videos, but this was hard-coded in the frontend code, so directed to keep the videos in this folder. This will soon be changed and once done will be updated in the manual. Also, this workflow will be gradually improved to avoid these steps, but currently the video size exceeds 100MB limit of commit size, so this is the workaround.
 
@@ -176,27 +179,36 @@ cp backend/.env.example backend/.env
 > >     volumes:
 > >       - <destination-path>:/var/lib/neo4j/import
 > > ```
+> > **For this project, bydeault in [docker-compose.yml](../docker-compose.yml) file, the path to keep the database dump is inside [scripts](./scripts) folder.**
+<div id="database-load-command"></div>
 
-```bash
-docker compose up -d --build
-  docker exec -it neo4j neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
-# Change the username (default username is neo4j) and password
-docker exec -it neo4j cypher-shell -u neo4j -p $NEO4J_PASSWORD "CREATE DATABASE pdnet; START DATABASE pdnet;"
-```
-
-> NOTE: To dump the database for data migration. Use this command:
-> ```bash
-> # Dump the database
-> docker exec -it neo4j neo4j-admin database dump pdnet --to-path=/var/lib/neo4j/import/backups
-> ```
+  ```bash
+  docker compose up -d --build
+    docker exec -it neo4j neo4j-admin database load --from-path=/var/lib/neo4j/import/ pdnet
+  # Change the username (default username is neo4j) and password
+  docker exec -it neo4j cypher-shell -u neo4j -p $NEO4J_PASSWORD "CREATE DATABASE pdnet; START DATABASE pdnet;"
+  ```
 
 6. Once, data is seeded successfully and database is online. Restart the neo4j service.
 
-```bash
-docker compose restart neo4j
-```
+  ```bash
+  docker compose restart neo4j
+  ```
 
-6. Open the browser and navigate to `http://localhost:5000/` to view the web interface.
+# Importing/Exporting Data
+
+1. Export the database dump from the database.
+
+  ```bash
+  # Dump the database
+  docker exec -it neo4j neo4j-admin database dump --to-path=/var/lib/neo4j/import/dump pdnet
+  ```
+
+  Now, the database dump is available in the [dump](./scripts/dump/) folder. If there's already a dump file present, it might not work. So, it's better to rename the existing dump file before exporting the data. This dump file is now ready to be imported into another database.
+
+2. The database dump can be imported into another database using the command written [here](#database-load-command).
+
+3. For ingesting data into the database, refer to the [Scripts Usage Documentation](./scripts/README.md).
 
 ## License
 

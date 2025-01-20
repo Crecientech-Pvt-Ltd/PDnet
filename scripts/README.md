@@ -23,7 +23,7 @@
 
 ## Database Seeding
 
-### Seeding the Interaction database
+### Seeding the Interaction data
 
 > 💡 **NOTE**  
 > Before running the following scripts, make sure you have transferred the seeding data to the server.
@@ -78,23 +78,15 @@ npm run reference-genome-update
 node reference-genome-update.js # with options
 ```
 
-## Utitlity Scripts
+### Deleting Universal Data
 
-1. csv2json: Convert CSV file to JSON file.
+Incase, you want to delete some of the universal data from the database. Run the following script to delete the universal data from the database & provide the required input in interactive mode.:
 
-   ```bash
-   npm run csv2json
-   # OR
-   node csv2json.js # with options
-   ```
-
-2. Universal-json2csv: Convert Universal JSON file to CSV file.
-
-   ```bash
-   npm run universal-json2csv
-   # OR
-   node universal-json2csv.js # with options
-   ```
+```bash
+npm run gene-universal-delete
+# OR
+node gene-universal-deletion.js # with options
+```
 
 ## FAQ
 
