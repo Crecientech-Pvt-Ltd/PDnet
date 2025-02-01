@@ -137,7 +137,9 @@ async function promptForDetails(answer) {
 
 (async () => {
   let { file, dbUrl, username, password, database, disease, header, noHeader, diseaseIndependent } = await argv;
-  disease = DISEASE_MAP.find((d) => file.includes(d));
+  if (file) {
+    disease = DISEASE_MAP.find((d) => file.includes(d));
+  }
   if (disease) {
     console.info(chalk.blue.bold("[INFO]"), chalk.cyan(`Detected disease: ${disease}`));
   }
